@@ -857,13 +857,26 @@ extension MediaLibraryViewController: WPMediaPickerViewControllerDelegate {
     func mediaPickerController(_ picker: WPMediaPickerViewController, previewViewControllerFor asset: WPMediaAsset) -> UIViewController? {
         guard picker == pickerViewController else { return WPAssetViewController(asset: asset) }
 
+        guard let media = asset as? Media,
+            media.remoteStatus == .sync else {
+                return nil
+        }
+
         WPAppAnalytics.track(.mediaLibraryPreviewedItem, with: blog)
         return mediaItemViewController(for: asset)
     }
 
     func mediaPickerController(_ picker: WPMediaPickerViewController, shouldSelect asset: WPMediaAsset) -> Bool {
         guard picker == pickerViewController else { return true }
-        guard !isEditing else { return true }
+
+        guard let media = asset as? Media,
+            media.remoteStatus == .sync else {
+                return false
+        }
+
+        guard !isEditing else {
+            return true
+        }
 
         if let viewController = mediaItemViewController(for: asset) {
             WPAppAnalytics.track(.mediaLibraryPreviewedItem, with: blog)
