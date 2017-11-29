@@ -415,7 +415,7 @@ class MediaLibraryViewController: UIViewController {
         visibleCells(for: media).forEach { cell in
             if let overlayView = cell.overlayView as? MediaCellProgressView {
                 if progress < MediaLibraryViewController.uploadCompleteProgress {
-                    overlayView.progressIndicator.state = .progress(progress)
+                    overlayView.state = .progress(progress)
                 } else {
                     overlayView.progressIndicator.state = .indeterminate
                 }
@@ -831,8 +831,16 @@ extension MediaLibraryViewController: WPMediaPickerViewControllerDelegate {
     func mediaPickerController(_ picker: WPMediaPickerViewController, willShowOverlayView overlayView: UIView, forCellFor asset: WPMediaAsset) {
         if let overlayView = overlayView as? MediaCellProgressView,
             let media = asset as? Media {
-            if media.remoteStatus == .processing {
-                overlayView.progressIndicator.state = .indeterminate
+            switch media.remoteStatus {
+            case .processing:
+                overlayView.state = .indeterminate
+            case .pushing:
+                if let progress = MediaUploadCoordinator.shared.progress(for: media) {
+                    overlayView.state = .progress(progress.fractionCompleted)
+                }
+            case .failed:
+                overlayView.state = .retry
+            default: break
             }
         }
     }
