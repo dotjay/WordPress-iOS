@@ -571,6 +571,22 @@ class MediaLibraryViewController: UIViewController {
         })
     }
 
+    fileprivate func presentRetryOptions(for media: Media) {
+        let alertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        alertController.addDestructiveActionWithTitle(NSLocalizedString("Cancel Upload", comment: "Media Library option to cancel an in-progress or failed upload.")) { _ in
+            let service = MediaService(managedObjectContext: ContextManager.sharedInstance().mainContext)
+            service.deleteMedia([media], progress: nil, success: nil, failure: nil)
+        }
+
+        alertController.addDefaultActionWithTitle(NSLocalizedString("Retry Upload", comment: "User action to retry media upload.")) { _ in
+            MediaUploadCoordinator.shared.retryMedia(media)
+        }
+
+        alertController.addCancelActionWithTitle(NSLocalizedString("Cancel", comment: ""))
+
+        present(alertController, animated: true, completion: nil)
+    }
+
     override var isEditing: Bool {
         didSet {
             updateNavigationItemButtons(for: pickerDataSource.totalAssetCount)
@@ -877,20 +893,27 @@ extension MediaLibraryViewController: WPMediaPickerViewControllerDelegate {
     }
 
     func mediaPickerController(_ picker: WPMediaPickerViewController, shouldSelect asset: WPMediaAsset) -> Bool {
-        guard picker == pickerViewController else { return true }
-
-        guard let media = asset as? Media,
-            media.remoteStatus == .sync else {
-                return false
-        }
-
-        guard !isEditing else {
+        guard picker == pickerViewController else {
             return true
         }
 
-        if let viewController = mediaItemViewController(for: asset) {
-            WPAppAnalytics.track(.mediaLibraryPreviewedItem, with: blog)
-            navigationController?.pushViewController(viewController, animated: true)
+        guard let media = asset as? Media else {
+            return false
+        }
+
+        guard !isEditing else {
+            return media.remoteStatus == .sync
+        }
+
+        switch media.remoteStatus {
+        case .failed:
+            presentRetryOptions(for: media)
+        case .sync:
+            if let viewController = mediaItemViewController(for: asset) {
+                WPAppAnalytics.track(.mediaLibraryPreviewedItem, with: blog)
+                navigationController?.pushViewController(viewController, animated: true)
+            }
+        default: break
         }
 
         return false
